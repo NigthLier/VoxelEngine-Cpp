@@ -463,12 +463,14 @@ static int l_get_hitbox(lua::State* L) {
         size_t rotation = lua::tointeger(L, 2);
         const size_t hitboxIndex =
             static_cast<size_t>(lua::isnumber(L, 3) ? lua::tointeger(L, 3) : 0);
+        const size_t variantIndex =
+            static_cast<size_t>(lua::isnumber(L, 3) ? lua::tointeger(L, 3) : 0);
         if (def->rotatable) {
             rotation %= def->rotations.MAX_COUNT;
         } else {
             rotation = 0;
         }
-        auto& hitbox = def->rt.hitboxes[rotation].at(hitboxIndex);
+        auto& hitbox = def->getVariantByBits(variantIndex).rt.hitboxes[rotation].at(hitboxIndex);
         lua::createtable(L, 2, 0);
 
         lua::pushvec3(L, hitbox.min());

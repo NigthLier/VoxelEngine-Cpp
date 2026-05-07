@@ -277,9 +277,9 @@ static inline voxel* raycast_blocks(
             iend.z = iz;
 
             if (!def.rt.solid) {
-                const std::vector<AABB>& hitboxes =
-                    def.rotatable ? def.rt.hitboxes[voxel->state.rotation]
-                                  : def.hitboxes;
+                const auto& hitboxes =
+                    def.rotatable ? def.getVariantByBits(voxel->state.userbits).rt.hitboxes[voxel->state.rotation]
+                                  : def.getVariantByBits(voxel->state.userbits).hitboxes;
 
                 scalar_t distance = maxDist;
                 Ray ray(start, dir);

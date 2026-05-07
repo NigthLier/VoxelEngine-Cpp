@@ -226,56 +226,54 @@ void BlocksRenderer::blockAABB(
     const glm::ivec3& icoord,
     const UVRegion(&texfaces)[6],
     const Block* block,
-    ubyte rotation,
+    blockstate states,
     bool lights,
     bool ao
 ) {
-    if (block->hitboxes.empty()) {
+    const auto& variant = block->getVariantByBits(states.userbits);
+    if (variant.hitboxes.empty()) {
         return;
     }
-    AABB hitbox = block->hitboxes[0];
-    for (const auto& box : block->hitboxes) {
-        hitbox.a = glm::min(hitbox.a, box.a);
-        hitbox.b = glm::max(hitbox.b, box.b);
-    }
-    auto size = hitbox.size();
-    glm::vec3 X(1, 0, 0);
-    glm::vec3 Y(0, 1, 0);
-    glm::vec3 Z(0, 0, 1);
-    glm::vec3 coord(icoord);
-    if (block->rotatable) {
-        auto& rotations = block->rotations;
-        auto& orient = rotations.variants[rotation];
-        X = orient.axes[0];
-        Y = orient.axes[1];
-        Z = orient.axes[2];
-        orient.transform(hitbox);
-    }
-    if (block->rt.extended) {
-        meshAABB.addPoint(coord + hitbox.max());
-        meshAABB.addPoint(coord + hitbox.min());
-    }
-    coord -= glm::vec3(0.5f) - hitbox.center();
+    for (AABB hitbox : variant.hitboxes) {
+        auto size = hitbox.size();
+        glm::vec3 X(1, 0, 0);
+        glm::vec3 Y(0, 1, 0);
+        glm::vec3 Z(0, 0, 1);
+        glm::vec3 coord(icoord);
+        if (block->rotatable) {
+            auto& rotations = block->rotations;
+            auto& orient = rotations.variants[states.rotation];
+            X = orient.axes[0];
+            Y = orient.axes[1];
+            Z = orient.axes[2];
+            orient.transform(hitbox);
+        }
+        if (block->rt.extended) {
+            meshAABB.addPoint(coord + hitbox.max());
+            meshAABB.addPoint(coord + hitbox.min());
+        }
+        coord -= glm::vec3(0.5f) - hitbox.center();
 
-    if (ao) {
-        faceAO(coord,  X*size.x,  Y*size.y,  Z*size.z, texfaces[5], lights); // north
-        faceAO(coord, -X*size.x,  Y*size.y, -Z*size.z, texfaces[4], lights); // south
+        if (ao) {
+            faceAO(coord,  X*size.x,  Y*size.y,  Z*size.z, texfaces[5], lights); // north
+            faceAO(coord, -X*size.x,  Y*size.y, -Z*size.z, texfaces[4], lights); // south
 
-        faceAO(coord,  X*size.x, -Z*size.z,  Y*size.y, texfaces[3], lights); // top
-        faceAO(coord, -X*size.x, -Z*size.z, -Y*size.y, texfaces[2], lights); // bottom
+            faceAO(coord,  X*size.x, -Z*size.z,  Y*size.y, texfaces[3], lights); // top
+            faceAO(coord, -X*size.x, -Z*size.z, -Y*size.y, texfaces[2], lights); // bottom
 
-        faceAO(coord, -Z*size.z,  Y*size.y,  X*size.x, texfaces[1], lights); // west
-        faceAO(coord,  Z*size.z,  Y*size.y, -X*size.x, texfaces[0], lights); // east
-    } else {
-        auto tint = pickLight(icoord);
-        face(coord,  X*size.x,  Y*size.y,  Z*size.z, texfaces[5], tint, lights); // north
-        face(coord, -X*size.x,  Y*size.y, -Z*size.z, texfaces[4], tint, lights); // south
+            faceAO(coord, -Z*size.z,  Y*size.y,  X*size.x, texfaces[1], lights); // west
+            faceAO(coord,  Z*size.z,  Y*size.y, -X*size.x, texfaces[0], lights); // east
+        } else {
+            auto tint = pickLight(icoord);
+            face(coord,  X*size.x,  Y*size.y,  Z*size.z, texfaces[5], tint, lights); // north
+            face(coord, -X*size.x,  Y*size.y, -Z*size.z, texfaces[4], tint, lights); // south
 
-        face(coord,  X*size.x, -Z*size.z,  Y*size.y, texfaces[3], tint, lights); // top
-        face(coord, -X*size.x, -Z*size.z, -Y*size.y, texfaces[2], tint, lights); // bottom
+            face(coord,  X*size.x, -Z*size.z,  Y*size.y, texfaces[3], tint, lights); // top
+            face(coord, -X*size.x, -Z*size.z, -Y*size.y, texfaces[2], tint, lights); // bottom
 
-        face(coord, -Z*size.z,  Y*size.y,  X*size.x, texfaces[1], tint, lights); // west
-        face(coord,  Z*size.z,  Y*size.y, -X*size.x, texfaces[0], tint, lights); // east
+            face(coord, -Z*size.z,  Y*size.y,  X*size.x, texfaces[1], tint, lights); // west
+            face(coord,  Z*size.z,  Y*size.y, -X*size.x, texfaces[0], tint, lights); // east
+        }
     }
 }
 
@@ -533,7 +531,7 @@ void BlocksRenderer::render(
                 }
                 case BlockModelType::AABB: {
                     if (!denseRender)
-                    blockAABB({x, y, z}, texfaces, &def, vox.state.rotation,
+                    blockAABB({x, y, z}, texfaces, &def, vox.state,
                               !def.shadeless, def.ambientOcclusion && enableAO);
                     break;
                 }
@@ -614,7 +612,7 @@ SortingMeshData BlocksRenderer::renderTranslucent(
                         {x, y, z},
                         texfaces,
                         &def,
-                        vox.state.rotation,
+                        vox.state,
                         !def.shadeless,
                         def.ambientOcclusion && enableAO
                     );

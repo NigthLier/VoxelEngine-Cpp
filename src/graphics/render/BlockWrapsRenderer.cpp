@@ -46,6 +46,7 @@ void BlockWrapsRenderer::draw(BlockWrapper& wrapper, const Texture* texture) {
     }
     // one frame can be invalid due to texture change but ok
     const auto& def = content.getIndices()->blocks.require(vox->id);
+    const auto& variant = def.getVariant(vox->state.userbits);
 
     if (wrapper.modelType != def.getModel(vox->state.userbits).type) {
         wrapper.dirtySides = 0xFF;
@@ -70,19 +71,20 @@ void BlockWrapsRenderer::draw(BlockWrapper& wrapper, const Texture* texture) {
             );
             break;
         case BlockModelType::AABB: {
-            const auto& aabb =
-                (def.rotatable ? def.rt.hitboxes[vox->state.rotation]
-                                : def.hitboxes).at(0);
-            const auto& size = aabb.size();
-            batch->cube(
-                glm::vec3(wrapper.position) + aabb.center(),
-                size * glm::vec3(1.01f),
-                wrapper.uvRegions,
-                light,
-                wrapper.tints.data(),
-                wrapper.emission,
-                cullingBits
-            );
+            const auto& hitboxes =
+                def.rotatable ? variant.rt.hitboxes[vox->state.rotation]
+                               : variant.hitboxes;
+            for (auto box : hitboxes) {
+                batch->cube(
+                    glm::vec3(wrapper.position) + box.center(),
+                    box.size() * glm::vec3(1.01f),
+                    wrapper.uvRegions,
+                    light,
+                    wrapper.tints.data(),
+                    wrapper.emission,
+                    cullingBits
+                );
+            }
             break;
         }
         default:
@@ -118,12 +120,13 @@ void BlockWrapsRenderer::refreshWrapper(BlockWrapper& wrapper) {
         return;
     }
     const auto& def = content.getIndices()->blocks.require(vox->id);
+    const auto& variant = def.getVariant(vox->state.userbits);
     wrapper.modelType = def.getModel(vox->state.userbits).type;
     switch (wrapper.modelType) {
         case BlockModelType::AABB: {
             const auto& aabb =
-                (def.rotatable ? def.rt.hitboxes[vox->state.rotation]
-                                : def.hitboxes).at(0);
+                (def.rotatable ? variant.rt.hitboxes[vox->state.rotation]
+                                : variant.hitboxes).at(0);
             const auto& size = aabb.size();
             wrapper.uvRegions[0].scale(size.z, size.y);
             wrapper.uvRegions[1].scale(size.z, size.y);

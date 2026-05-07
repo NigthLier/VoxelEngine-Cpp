@@ -43,25 +43,30 @@ std::unique_ptr<ImageData> BlocksPreview::draw(
                             glm::vec4(1.0f), !def.rt.emissive);
             batch.flush();
             break;
-        case BlockModelType::AABB:
-            {
-                glm::vec3 hitbox {};
-                for (const auto& box : def.hitboxes) {
-                    hitbox = glm::max(hitbox, box.size());
-                }
+        case BlockModelType::AABB: {
                 offset = glm::vec3(1, 1, 0.0f);
                 shader.uniformMatrix("u_apply", glm::translate(glm::mat4(1.0f), offset));
                 glm::vec3 scaledSize = glm::vec3(size * 0.63f);
-                batch.cube(
-                    -hitbox * scaledSize * 0.5f * glm::vec3(1,1,-1),
-                    hitbox * scaledSize,
-                    texfaces, glm::vec4(1.0f), 
-                    !def.rt.emissive
-                );
+
+                glm::vec3 volume  {}, origin {FLT_MAX};
+                for (const auto& box : def.hitboxes) {
+                    origin = glm::min(origin,  box.a);
+                    volume = glm::max(volume , box.b);
+                }
+                glm::vec3 total = volume - origin;
+
+                for (const auto& box : def.hitboxes) {
+                    batch.cube(
+                        (box.a - origin - total * 0.5f) * scaledSize * glm::vec3(1,1,-1),
+                        box.size() * scaledSize,
+                        texfaces, glm::vec4(1.0f),
+                        !def.rt.emissive
+                    );
+                    batch.flush();
+                }
+                break;
             }
-            batch.flush();
-            break;
-        case BlockModelType::CUSTOM:{
+        case BlockModelType::CUSTOM: {
             glm::vec3 pmul = glm::vec3(size * 0.63f);
             glm::vec3 hitbox = glm::vec3(1.0f);
             glm::vec3 poff = glm::vec3(0.0f, 0.0f, 1.0f);
