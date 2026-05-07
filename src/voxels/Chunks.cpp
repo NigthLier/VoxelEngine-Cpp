@@ -75,7 +75,8 @@ const AABB* Chunks::isObstacleAt(float x, float y, float z) const {
         offset = seekOrigin(point, def, v->state) - point;
     }
     const auto& boxes =
-        def.rotatable ? def.rt.hitboxes[v->state.rotation] : def.hitboxes;
+        def.rotatable ? def.getVariantByBits(v->state.userbits).rt.hitboxes[v->state.rotation]
+                      : def.getVariantByBits(v->state.userbits).hitboxes;
     for (const auto& hitbox : boxes) {
         if (hitbox.contains(
             {x - ix - offset.x, y - iy - offset.y, z - iz - offset.z}
@@ -263,8 +264,9 @@ glm::vec3 Chunks::rayCastToObstacle(
             const auto& def = indices.blocks.require(voxel->id);
             if (def.obstacle) {
                 if (!def.rt.solid) {
-                    const std::vector<AABB>& hitboxes =
-                        def.rt.hitboxes[voxel->state.rotation];
+                    const auto& hitboxes =
+                        def.rotatable ? def.getVariantByBits(voxel->state.userbits).rt.hitboxes[voxel->state.rotation]
+                                      : def.getVariantByBits(voxel->state.userbits).hitboxes;
 
                     scalar_t distance;
                     glm::ivec3 norm;

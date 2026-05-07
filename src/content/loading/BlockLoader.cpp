@@ -42,6 +42,37 @@ static void perform_user_block_fields(
     layout = StructLayout::create(fields);
 }
 
+static void load_hitboxes(
+    std::vector<AABB>& hitboxes, const dv::value& root
+) {
+    if (auto found = root.at("hitboxes")) {
+        const auto& boxarr = *found;
+        hitboxes.resize(boxarr.size());
+        for (uint i = 0; i < boxarr.size(); i++) {
+            const auto& box = boxarr[i];
+            auto& hitboxesIndex = hitboxes[i];
+            hitboxesIndex.a = glm::vec3(
+                box[0].asNumber(), box[1].asNumber(), box[2].asNumber()
+            );
+            hitboxesIndex.b = glm::vec3(
+                box[3].asNumber(), box[4].asNumber(), box[5].asNumber()
+            );
+            hitboxesIndex.b += hitboxesIndex.a;
+        }
+    } else if (auto found = root.at("hitbox")) {
+        const auto& box = *found;
+        AABB aabb;
+        aabb.a = glm::vec3(
+            box[0].asNumber(), box[1].asNumber(), box[2].asNumber()
+        );
+        aabb.b = glm::vec3(
+            box[3].asNumber(), box[4].asNumber(), box[5].asNumber()
+        );
+        aabb.b += aabb.a;
+        hitboxes = {aabb};
+    }
+}
+
 static void load_variant(
     Variant& variant, const dv::value& root, const std::string& name
 ) {
@@ -64,7 +95,8 @@ static void load_variant(
     root.at("model").get(modelTypeName);
     root.at("model-name").get(model.name);
     if (BlockModelTypeMeta.getItem(modelTypeName, model.type)) {
-        if (model.type == BlockModelType::CUSTOM && model.customRaw == nullptr) {
+        if (model.type == BlockModelType::CUSTOM &&
+            model.customRaw == nullptr) {
             if (root.has("model-primitives")) {
                 model.customRaw = root["model-primitives"];
             } else if (model.name.empty()) {
@@ -77,15 +109,20 @@ static void load_variant(
         logger.error() << "unknown model: " << modelTypeName;
         model.type = BlockModelType::NONE;
     }
-    std::string cullingModeName = CullingModeMeta.getNameString(variant.culling);
+    std::string cullingModeName =
+        CullingModeMeta.getNameString(variant.culling);
     root.at("culling").get(cullingModeName);
     if (!CullingModeMeta.getItem(cullingModeName, variant.culling)) {
         logger.error() << "unknown culling mode: " << cullingModeName;
     }
     root.at("draw-group").get(variant.drawGroup);
+
+    // hitbox
+    load_hitboxes(variant.hitboxes, root);
 }
 
-template<> void ContentUnitLoader<Block>::loadUnit(
+template <>
+void ContentUnitLoader<Block>::loadUnit(
     Block& def, const std::string& name, const io::path& file
 ) {
     auto root = io::read_json(file);
@@ -106,6 +143,8 @@ template<> void ContentUnitLoader<Block>::loadUnit(
     root.at("caption").get(def.caption);
 
     load_variant(def.defaults, root, name);
+    // block hitbox AABB [x, y, z, width, height, depth]
+    def.hitboxes = def.defaults.hitboxes;
 
     if (root.has("state-based")) {
         const auto& stateBased = root["state-based"];
@@ -117,7 +156,9 @@ template<> void ContentUnitLoader<Block>::loadUnit(
             stateBased.at("offset").get(offset);
             stateBased.at("bits").get(bitsCount);
             if (offset < 0 || bitsCount <= 0 || offset + bitsCount > 8) {
-                throw std::runtime_error("Invalid state-based bits configuration");
+                throw std::runtime_error(
+                    "Invalid state-based bits configuration"
+                );
             }
 
             def.variants = std::make_unique<Variants>();
@@ -151,34 +192,6 @@ template<> void ContentUnitLoader<Block>::loadUnit(
     } else if (profile != "none") {
         logger.error() << "unknown rotation profile " << profile;
         def.rotatable = false;
-    }
-
-    // block hitbox AABB [x, y, z, width, height, depth]
-    if (auto found = root.at("hitboxes")) {
-        const auto& boxarr = *found;
-        def.hitboxes.resize(boxarr.size());
-        for (uint i = 0; i < boxarr.size(); i++) {
-            const auto& box = boxarr[i];
-            auto& hitboxesIndex = def.hitboxes[i];
-            hitboxesIndex.a = glm::vec3(
-                box[0].asNumber(), box[1].asNumber(), box[2].asNumber()
-            );
-            hitboxesIndex.b = glm::vec3(
-                box[3].asNumber(), box[4].asNumber(), box[5].asNumber()
-            );
-            hitboxesIndex.b += hitboxesIndex.a;
-        }
-    } else if (auto found = root.at("hitbox")) {
-        const auto& box = *found;
-        AABB aabb;
-        aabb.a = glm::vec3(
-            box[0].asNumber(), box[1].asNumber(), box[2].asNumber()
-        );
-        aabb.b = glm::vec3(
-            box[3].asNumber(), box[4].asNumber(), box[5].asNumber()
-        );
-        aabb.b += aabb.a;
-        def.hitboxes = {aabb};
     }
 
     // block light emission [r, g, b] where r,g,b in range [0..15]
@@ -218,15 +231,20 @@ template<> void ContentUnitLoader<Block>::loadUnit(
         if (def.defaults.model.type == BlockModelType::BLOCK &&
             (def.size.x != 1 || def.size.y != 1 || def.size.z != 1)) {
             def.defaults.model.type = BlockModelType::AABB;
-            def.hitboxes = {AABB(def.size)};
+            def.defaults.hitboxes = {AABB(def.size)};
+            def.hitboxes = def.defaults.hitboxes;
         }
 
-        // grounding behaviour
+        // grounding behavior
         if (root.has("grounding-behaviour")) {
-            std::string groundingBehaviourName = GroundingBehaviourMeta.getNameString(def.groundingBehaviour);
+            std::string groundingBehaviourName =
+                GroundingBehaviourMeta.getNameString(def.groundingBehaviour);
             root.at("grounding-behaviour").get(groundingBehaviourName);
-            if (!GroundingBehaviourMeta.getItem(groundingBehaviourName, def.groundingBehaviour)) {
-                logger.error() << "unknown grounding behaviour: " << groundingBehaviourName;
+            if (!GroundingBehaviourMeta.getItem(
+                    groundingBehaviourName, def.groundingBehaviour
+                )) {
+                logger.error() << "unknown grounding behaviour: "
+                               << groundingBehaviourName;
             }
         }
     }

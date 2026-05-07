@@ -171,37 +171,59 @@ model::Model ModelsGenerator::generate(
     const ItemDef& def, const Content& content, const Assets& assets
 ) {
     if (def.iconType == ItemIconType::BLOCK) {
-        auto model = assets.require<model::Model>("block");
         const auto& blockDef = content.blocks.require(def.icon);
         const auto& variant = blockDef.defaults;
         const auto& blockModel = variant.model;
-        if (blockModel.type == BlockModelType::XSPRITE) {
-            return create_flat_model(
-                "blocks:" + blockDef.defaults.textureFaces.at(0), assets
-            );
-        } else if (blockModel.type == BlockModelType::CUSTOM) {
-            model = assets.require<model::Model>(blockModel.name);
-            for (auto& mesh : model.meshes) {
-                mesh.scale(glm::vec3(0.2f));
+        switch (blockModel.type) {
+            case BlockModelType::XSPRITE: {
+                return create_flat_model("blocks:" + blockDef.defaults.textureFaces.at(0), assets);
             }
-            return model;
-        }
-        for (auto& mesh : model.meshes) {
-            mesh.shading = !blockDef.shadeless;
-            switch (blockModel.type) {
-                case BlockModelType::AABB: {
-                    glm::vec3 size = blockDef.hitboxes.at(0).size();
-                    float m = glm::max(size.x, glm::max(size.y, size.z));
-                    m = glm::min(1.0f, m);
-                    mesh.scale(size / m);
-                    break;
-                } default:
-                    break;
+            case BlockModelType::CUSTOM: {
+                auto model = assets.require<model::Model>(blockModel.name);
+                for (auto& mesh : model.meshes) {
+                    mesh.scale(glm::vec3(0.2f));
+                }
+                return model;
             }
-            mesh.scale(glm::vec3(0.2f));
+            case BlockModelType::AABB: {
+                auto base = assets.require<model::Model>("block");
+                model::Model model;
+                model.meshes.reserve(base.meshes.size() * blockDef.hitboxes.size());
+
+                glm::vec3 volume  {}, origin {FLT_MAX};
+                for (const auto& box : blockDef.hitboxes) {
+                    origin = glm::min(origin,  box.a);
+                    volume  = glm::max(volume, box.b);
+                }
+                glm::vec3 total = volume - origin;
+                float m = glm::min(1.0f, glm::max(total.x, glm::max(total.y, total.z)));
+
+                for (const auto& hitbox : blockDef.hitboxes) {
+                    const glm::vec3 size = hitbox.size();
+                    for (const auto& baseMesh : base.meshes) {
+                        auto mesh = baseMesh;
+                        mesh.shading = !blockDef.shadeless;
+                        for (auto& vertex : mesh.vertices) {
+                            vertex.coord = (vertex.coord + glm::vec3(0.5f)) * size / m;
+                            vertex.coord += hitbox.a - origin - total * 0.5f;
+                            vertex.coord *= 0.2f;
+                        }
+                        model.meshes.push_back(std::move(mesh));
+                    }
+                }
+                configure_textures(model, assets, blockDef.defaults.textureFaces);
+                return model;
+            }
+            default: {
+                auto model = assets.require<model::Model>("block");
+                for (auto& mesh : model.meshes) {
+                    mesh.shading = !blockDef.shadeless;
+                    mesh.scale(glm::vec3(0.2f));
+                }
+                configure_textures(model, assets, blockDef.defaults.textureFaces);
+                return model;
+            }
         }
-        configure_textures(model, assets, blockDef.defaults.textureFaces);
-        return model;
     } else if (def.iconType == ItemIconType::SPRITE) {
         return create_flat_model(def.icon, assets);
     } else {

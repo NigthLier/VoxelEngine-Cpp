@@ -26,17 +26,38 @@ std::unique_ptr<Content> ContentBuilder::build() {
             def.rt.tags.insert(tags.add(tag));
         }
 
+        auto bake_variant_hitboxes = [&](Variant& variant) {
+            for (uint i = 0; i < BlockRotProfile::MAX_COUNT; i++) {
+                variant.rt.hitboxes[i].clear();
+            }
+            if (def.rotatable) {
+                for (uint i = 0; i < BlockRotProfile::MAX_COUNT; i++) {
+                    variant.rt.hitboxes[i].reserve(variant.hitboxes.size());
+
+                    for (AABB aabb : variant.hitboxes) {
+                        def.rotations.variants[i].transform(aabb);
+                        aabb.fix();
+                        variant.rt.hitboxes[i].push_back(aabb);
+                    }
+                }
+            } else {
+                variant.rt.hitboxes[0] = variant.hitboxes;
+            }
+        };
+
         if (def.variants) {
             for (auto& variant : def.variants->variants) {
                 variant.rt.solid =
                     variant.model.type == BlockModelType::BLOCK ||
                     def.explictlySolid;
+                bake_variant_hitboxes(variant);
             }
             def.defaults = def.variants->variants.at(0);
         } else {
             def.defaults.rt.solid =
                 def.defaults.model.type == BlockModelType::BLOCK ||
                 def.explictlySolid;
+            bake_variant_hitboxes(def.defaults);
         }
 
         const float EPSILON = 0.01f;

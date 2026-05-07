@@ -179,10 +179,14 @@ struct Variant {
     CullingMode culling = CullingMode::DEFAULT;
     /// @brief Influences visible block sides for transparent blocks
     uint8_t drawGroup = 0;
+    /// @brief Set of block physical hitboxes
+    std::vector<AABB> hitboxes {AABB()};
 
     struct {
         /// @brief is the block completely opaque for render
         bool solid = true;
+        /// @brief set of hitboxes sets with all coord-systems precalculated
+        std::vector<AABB> hitboxes[BlockRotProfile::MAX_COUNT];
     } rt;
 };
 

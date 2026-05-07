@@ -242,10 +242,11 @@ void WorldRenderer::renderBlockSelection() {
     const glm::ivec3 pos = player.selection.position;
     const glm::vec3 point = selection.hitPosition;
     const glm::vec3 norm = selection.normal;
+    const auto& variant = block.getVariantByBits(selection.vox.state.userbits);
 
     const std::vector<AABB>& hitboxes =
-        block.rotatable ? block.rt.hitboxes[selection.vox.state.rotation]
-                        : block.hitboxes;
+        block.rotatable ? variant.rt.hitboxes[selection.vox.state.rotation]
+                        : variant.hitboxes;
 
     lineBatch->lineWidth(2.0f);
     for (auto& hitbox : hitboxes) {

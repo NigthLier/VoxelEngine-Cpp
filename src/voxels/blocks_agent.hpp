@@ -491,7 +491,8 @@ inline std::optional<AABB> is_obstacle_at(
         offset = seek_origin(chunks, point, def, v->state) - point;
     }
     const auto& boxes =
-        def.rotatable ? def.rt.hitboxes[v->state.rotation] : def.hitboxes;
+        def.rotatable ? def.getVariantByBits(v->state.userbits).rt.hitboxes[v->state.rotation]
+                      : def.getVariantByBits(v->state.userbits).hitboxes;
 
     for (const auto& hitbox : boxes) {
         if (hitbox.intersects(aabb - glm::ivec3(ix, iy, iz))) {
