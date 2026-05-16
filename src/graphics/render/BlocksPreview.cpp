@@ -49,17 +49,28 @@ std::unique_ptr<ImageData> BlocksPreview::draw(
                 glm::vec3 scaledSize = glm::vec3(size * 0.63f);
 
                 glm::vec3 volume  {}, origin {FLT_MAX};
-                for (const auto& box : def.hitboxes) {
-                    origin = glm::min(origin,  box.a);
-                    volume = glm::max(volume , box.b);
+                for (uint8_t i = 0; i < def.getVariantCount(); i++) {
+                    for (const auto& box : def.getVariant(i).hitboxes) {
+                        origin = glm::min(origin,  box.a);
+                        volume = glm::max(volume , box.b);
+                    }
                 }
                 glm::vec3 total = volume - origin;
 
                 for (const auto& box : def.hitboxes) {
+                    const glm::vec3 uvMin = (box.a - origin) / total;
+                    const glm::vec3 uvMax = (box.b - origin) / total;
+
+                    UVRegion faceUVs[6] {
+                        texfaces[0], texfaces[1].cropUV(uvMin.z, uvMin.y, uvMax.z, uvMax.y), // right
+                        texfaces[2], texfaces[3].cropUV(uvMin.x, uvMin.z, uvMax.x, uvMax.z), // top
+                        texfaces[4], texfaces[5].cropUV(uvMin.x, uvMin.y, uvMax.x, uvMax.y) // left
+                    };
+
                     batch.cube(
                         (box.a - origin - total * 0.5f) * scaledSize * glm::vec3(1,1,-1),
                         box.size() * scaledSize,
-                        texfaces, glm::vec4(1.0f),
+                        faceUVs, glm::vec4(1.0f),
                         !def.rt.emissive
                     );
                     batch.flush();

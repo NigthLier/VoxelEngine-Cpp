@@ -35,6 +35,18 @@ struct UVRegion {
         v2 = v1 + uvh * h;
     }
 
+    UVRegion cropUV( float u1, float v1, float u2, float v2) const {
+        if (u1 == 0 && v1 == 0 && u2 == 1 && v2 == 1) {
+            return *this;
+        }
+        return {
+            glm::mix(this->u1, this->u2, u1),
+            glm::mix(this->v1, this->v2, v1),
+            glm::mix(this->u1, this->u2, u2),
+            glm::mix(this->v1, this->v2, v2)
+        };
+    }
+
     inline glm::vec2 apply(const glm::vec2& uv) {
         float w = getWidth();
         float h = getHeight();

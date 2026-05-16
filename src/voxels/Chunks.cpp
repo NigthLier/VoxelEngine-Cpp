@@ -263,10 +263,10 @@ glm::vec3 Chunks::rayCastToObstacle(
         if (voxel) {
             const auto& def = indices.blocks.require(voxel->id);
             if (def.obstacle) {
-                if (!def.rt.solid) {
+                const auto& var = def.getVariantByBits(voxel->state.userbits);
+                if (!var.rt.solid) {
                     const auto& hitboxes =
-                        def.rotatable ? def.getVariantByBits(voxel->state.userbits).rt.hitboxes[voxel->state.rotation]
-                                      : def.getVariantByBits(voxel->state.userbits).hitboxes;
+                        def.rotatable ? var.rt.hitboxes[voxel->state.rotation] : var.hitboxes;
 
                     scalar_t distance;
                     glm::ivec3 norm;

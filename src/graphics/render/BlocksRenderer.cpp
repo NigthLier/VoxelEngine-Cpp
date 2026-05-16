@@ -234,8 +234,21 @@ void BlocksRenderer::blockAABB(
     if (variant.hitboxes.empty()) {
         return;
     }
+
+    glm::vec3 volume  {}, origin {FLT_MAX};
+    for (uint8_t i = 0; i < block->getVariantCount(); i++) {
+        for (const auto& box : block->getVariant(i).hitboxes) {
+            origin = glm::min(origin,  box.a);
+            volume = glm::max(volume , box.b);
+        }
+    }
+    glm::vec3 total = volume - origin;
+
     for (AABB hitbox : variant.hitboxes) {
         auto size = hitbox.size();
+        const glm::vec3 uvMin = (hitbox.a - origin) / total;
+        const glm::vec3 uvMax = (hitbox.b - origin) / total;
+
         glm::vec3 X(1, 0, 0);
         glm::vec3 Y(0, 1, 0);
         glm::vec3 Z(0, 0, 1);
@@ -255,24 +268,20 @@ void BlocksRenderer::blockAABB(
         coord -= glm::vec3(0.5f) - hitbox.center();
 
         if (ao) {
-            faceAO(coord,  X*size.x,  Y*size.y,  Z*size.z, texfaces[5], lights); // north
-            faceAO(coord, -X*size.x,  Y*size.y, -Z*size.z, texfaces[4], lights); // south
-
-            faceAO(coord,  X*size.x, -Z*size.z,  Y*size.y, texfaces[3], lights); // top
-            faceAO(coord, -X*size.x, -Z*size.z, -Y*size.y, texfaces[2], lights); // bottom
-
-            faceAO(coord, -Z*size.z,  Y*size.y,  X*size.x, texfaces[1], lights); // west
-            faceAO(coord,  Z*size.z,  Y*size.y, -X*size.x, texfaces[0], lights); // east
+            faceAO(coord, X*size.x, Y*size.y, Z*size.z, texfaces[5].cropUV(uvMin.x, uvMin.y, uvMax.x, uvMax.y), lights); // north
+            faceAO(coord, -X*size.x, Y*size.y, -Z*size.z, texfaces[4].cropUV(1.0f-uvMax.x, uvMin.y, 1.0f-uvMin.x, uvMax.y), lights);  // south
+            faceAO(coord, X*size.x, -Z*size.z, Y*size.y, texfaces[3].cropUV(uvMin.x, 1.0f-uvMax.z, uvMax.x, 1.0f-uvMin.z), lights); // top
+            faceAO(coord, -X*size.x, -Z*size.z, -Y*size.y, texfaces[2].cropUV(1.0f-uvMax.x, 1.0f-uvMax.z,1.0f-uvMin.x,1.0f-uvMin.z), lights); // bottom
+            faceAO(coord, -Z*size.z, Y*size.y, X*size.x, texfaces[1].cropUV(1.0f-uvMax.z, uvMin.y, 1.0f-uvMin.z, uvMax.y), lights); // west
+            faceAO(coord, Z*size.z, Y*size.y, -X*size.x, texfaces[0].cropUV(uvMin.z, uvMin.y, uvMax.z, uvMax.y), lights); // east
         } else {
             auto tint = pickLight(icoord);
-            face(coord,  X*size.x,  Y*size.y,  Z*size.z, texfaces[5], tint, lights); // north
-            face(coord, -X*size.x,  Y*size.y, -Z*size.z, texfaces[4], tint, lights); // south
-
-            face(coord,  X*size.x, -Z*size.z,  Y*size.y, texfaces[3], tint, lights); // top
-            face(coord, -X*size.x, -Z*size.z, -Y*size.y, texfaces[2], tint, lights); // bottom
-
-            face(coord, -Z*size.z,  Y*size.y,  X*size.x, texfaces[1], tint, lights); // west
-            face(coord,  Z*size.z,  Y*size.y, -X*size.x, texfaces[0], tint, lights); // east
+            face(coord, X*size.x, Y*size.y, Z*size.z, texfaces[5].cropUV(uvMin.x, uvMin.y, uvMax.x, uvMax.y), tint, lights); // north
+            face(coord, -X*size.x, Y*size.y, -Z*size.z, texfaces[4].cropUV(1.0f-uvMax.x, uvMin.y, 1.0f-uvMin.x, uvMax.y), tint, lights);  // south
+            face(coord, X*size.x, -Z*size.z, Y*size.y, texfaces[3].cropUV(uvMin.x, 1.0f-uvMax.z, uvMax.x, 1.0f-uvMin.z), tint, lights); // top
+            face(coord, -X*size.x, -Z*size.z, -Y*size.y, texfaces[2].cropUV(1.0f-uvMax.x, 1.0f-uvMax.z,1.0f-uvMin.x,1.0f-uvMin.z), tint, lights); // bottom
+            face(coord, -Z*size.z, Y*size.y, X*size.x, texfaces[1].cropUV(1.0f-uvMax.z, uvMin.y, 1.0f-uvMin.z, uvMax.y), tint, lights); // west
+            face(coord, Z*size.z, Y*size.y, -X*size.x, texfaces[0].cropUV(uvMin.z, uvMin.y, uvMax.z, uvMax.y), tint, lights); // east
         }
     }
 }

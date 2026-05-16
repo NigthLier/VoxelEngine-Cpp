@@ -191,9 +191,11 @@ model::Model ModelsGenerator::generate(
                 model.meshes.reserve(base.meshes.size() * blockDef.hitboxes.size());
 
                 glm::vec3 volume  {}, origin {FLT_MAX};
-                for (const auto& box : blockDef.hitboxes) {
-                    origin = glm::min(origin,  box.a);
-                    volume  = glm::max(volume, box.b);
+                for (uint8_t i = 0; i < blockDef.getVariantCount(); i++) {
+                    for (const auto& box : blockDef.getVariant(i).hitboxes) {
+                        origin = glm::min(origin,  box.a);
+                        volume = glm::max(volume , box.b);
+                    }
                 }
                 glm::vec3 total = volume - origin;
                 float m = glm::min(1.0f, glm::max(total.x, glm::max(total.y, total.z)));
@@ -204,7 +206,17 @@ model::Model ModelsGenerator::generate(
                         auto mesh = baseMesh;
                         mesh.shading = !blockDef.shadeless;
                         for (auto& vertex : mesh.vertices) {
-                            vertex.coord = (vertex.coord + glm::vec3(0.5f)) * size / m;
+                            vertex.coord =  (vertex.coord + glm::vec3(0.5f)) * size;
+                            glm::vec3 uv = (vertex.coord + hitbox.a - origin) / total;
+                            glm::vec3 n = vertex.normal;
+                            if (fabs(n.z) > 0.5f) {
+                                vertex.uv = {n.z > 0 ? uv.x : (1.0f - uv.x), uv.y};
+                            } else if (fabs(n.y) > 0.5f) {
+                                vertex.uv = {uv.x, n.y > 0 ? (1.0f - uv.z) : uv.z};
+                            } else if (fabs(n.x) > 0.5f) {
+                                vertex.uv = {n.x < 0 ? uv.z : (1.0f - uv.z), uv.y};
+                            }
+                            vertex.coord /= m;
                             vertex.coord += hitbox.a - origin - total * 0.5f;
                             vertex.coord *= 0.2f;
                         }

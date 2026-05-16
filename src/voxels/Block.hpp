@@ -336,6 +336,10 @@ public:
 
     void cloneTo(Block& dst);
 
+    uint8_t getVariantCount() const {
+        return variants ? variants->variants.size() : 1;
+    }
+
     uint8_t getVariantIndex(uint8_t userbits) const {
         if (variants == nullptr)
             return 0;
